@@ -337,7 +337,7 @@ fn read_rainmeter_settings(
 
     let rainmeter = settings.section(Some("Rainmeter")).unwrap();
 
-    rainmeter_settings.skins_path = match rainmeter.get("SkinsPath") {
+    rainmeter_settings.skins_path = match rainmeter.get("SkinPath") {
         Some(skin_path) => skin_path.to_owned(),
         None => {
             std::env::var("USERPROFILE").unwrap_or("".to_owned())

@@ -3,18 +3,6 @@
 version = 3
 
 [[package]]
-name = "RmSkinInstaller"
-version = "0.1.0"
-dependencies = [
- "clap",
- "rust-ini",
- "utf16_reader",
- "uuid",
- "windows",
- "zip",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -506,6 +494,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9ab9c7eadfd8df19006f1cf1a4aed13540ed5cbc047010ece5826e10825488"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "rainmeter_skin_installer"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "rust-ini",
+ "utf16_reader",
+ "uuid",
+ "windows",
+ "zip",
 ]
 
 [[package]]
