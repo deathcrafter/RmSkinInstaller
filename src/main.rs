@@ -639,12 +639,26 @@ fn create_backup(
     }
     for skin in &install_options.skins[..] {
         let oldfile = Path::new(&rainmeter_settings.skins_path).join(Path::new(&skin));
+        if !oldfile.is_dir() {
+            continue;
+        }
+
         let newfile = Path::new(&backup_dir).join(Path::new(&skin));
+
+        if newfile.is_dir() {
+            match fs::remove_dir_all(&newfile) {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("Error removing directory: {}", newfile.to_str().unwrap());
+                    return Err(Box::new(e));
+                }
+            }
+        }
 
         match copy_dir_all(&oldfile, &newfile) {
             Ok(_) => (),
             Err(e) => {
-                println!("Error moving file to backup: {}", oldfile.to_str().unwrap());
+                println!("Error moving skin to backup: {}", oldfile.to_str().unwrap());
                 return Err(e);
             }
         };
