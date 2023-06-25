@@ -46,6 +46,9 @@ struct Opts {
 
     #[arg(long)]
     keepvariables: bool,
+
+    #[arg(long)]
+    nobackup: bool,
 }
 
 fn main() -> ExitCode {
@@ -139,6 +142,18 @@ fn main() -> ExitCode {
 
     if install_options.merge_skins {
         println!("Merging skins...");
+
+        if opts.keepvariables {
+            println!("Keeping variables...");
+            match keep_variables(&mut install_options, &mut rainmeter_settings) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Error keeping variables: {}", e);
+                    return ExitCode::FAILURE;
+                }
+            };
+        }
+
         match merge_skins(&mut install_options, &mut rainmeter_settings) {
             Ok(_) => (),
             Err(e) => {
@@ -156,14 +171,16 @@ fn main() -> ExitCode {
             }
         };
 
-        println!("Creating backup...");
-        match create_backup(&mut install_options, &mut rainmeter_settings) {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Error creating backup: {}", e);
-                return ExitCode::FAILURE;
-            }
-        };
+        if !opts.nobackup {
+            println!("Creating backup...");
+            match create_backup(&mut install_options, &mut rainmeter_settings) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("Error creating backup: {}", e);
+                    return ExitCode::FAILURE;
+                }
+            };
+        }
 
         println!("Installing skins...");
         match move_skins(&mut install_options, &mut rainmeter_settings) {
@@ -588,21 +605,10 @@ fn move_plugins(
     install_options: &mut InstallOptions,
     rainmeter_settings: &mut RainmeterSettings,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for plugin in &install_options.plugins[..] {
-        let oldfile = Path::new(&install_options.temp_dir)
-            .join("Plugins\\64bit")
-            .join(Path::new(&plugin));
-        let newfile = Path::new(&rainmeter_settings.settings_path)
-            .join("Plugins")
-            .join(Path::new(&plugin));
+    let oldfile = Path::new(&install_options.temp_dir).join("Plugins\\64bit");
+    let newfile = Path::new(&rainmeter_settings.settings_path).join("Plugins");
 
-        match fs::rename(oldfile, newfile) {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(Box::new(e));
-            }
-        }
-    }
+    copy_dir_all(&oldfile, &newfile)?;
     Ok(())
 }
 
@@ -610,32 +616,10 @@ fn move_layouts(
     install_options: &mut InstallOptions,
     rainmeter_settings: &mut RainmeterSettings,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for layout in &install_options.layouts[..] {
-        let oldfile = Path::new(&install_options.temp_dir)
-            .join("Layouts")
-            .join(Path::new(&layout));
-        let newfile = Path::new(&rainmeter_settings.settings_path)
-            .join("Layouts")
-            .join(Path::new(&layout));
+    let oldfile = Path::new(&install_options.temp_dir).join("Layouts");
+    let newfile = Path::new(&rainmeter_settings.settings_path).join("Layouts");
 
-        if newfile.is_dir() {
-            match fs::remove_dir_all(&newfile) {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("Error removing layout: {}", layout);
-                    return Err(Box::new(e));
-                }
-            }
-        }
-        match fs::rename(oldfile, newfile) {
-            Ok(_) => (),
-            Err(e) => {
-                println!("Error moving layout: {}", e);
-                return Err(Box::new(e));
-            }
-        }
-    }
-
+    copy_dir_all(&oldfile, &newfile)?;
     Ok(())
 }
 
@@ -657,7 +641,7 @@ fn create_backup(
         let oldfile = Path::new(&rainmeter_settings.skins_path).join(Path::new(&skin));
         let newfile = Path::new(&backup_dir).join(Path::new(&skin));
 
-        match move_dir_all(&oldfile, &newfile) {
+        match copy_dir_all(&oldfile, &newfile) {
             Ok(_) => (),
             Err(e) => {
                 println!("Error moving file to backup: {}", oldfile.to_str().unwrap());
@@ -848,7 +832,21 @@ fn read_ini(file_path: &str) -> Result<Ini, Box<ini::ParseError>> {
 }
 
 fn copy_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    if !dest.exists() {
+    if !src.is_dir() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Source is not a directory",
+        )));
+    }
+
+    if dest.is_file() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Destination is a file",
+        )));
+    }
+
+    if !dest.is_dir() {
         match fs::create_dir_all(dest) {
             Ok(_) => (),
             Err(e) => {
@@ -869,9 +867,19 @@ fn copy_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error
                 }
             }
         } else {
+            if !dest_path.parent().unwrap().is_dir() {
+                match fs::create_dir_all(&dest_path) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(Box::new(e));
+                    }
+                }
+            }
             match fs::copy(&path, &dest_path) {
                 Ok(_) => (),
-                Err(_) => (), // ignore copy errors
+                Err(e) => {
+                    return Err(Box::new(e));
+                } // ignore copy errors
             }
         }
     }
@@ -879,19 +887,36 @@ fn copy_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-fn move_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn _move_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     if !src.is_dir() {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
             "Source is not a directory",
         )));
     }
+
+    if dest.is_file() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Destination is a file",
+        )));
+    }
+
+    if !dest.is_dir() {
+        match fs::create_dir_all(dest) {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(Box::new(e));
+            }
+        }
+    }
+
     for entry in fs::read_dir(&src).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
         let dest_path = dest.join(path.file_name().unwrap());
         if path.is_dir() {
-            match move_dir_all(&path, &dest_path) {
+            match _move_dir_all(&path, &dest_path) {
                 Ok(_) => (),
                 Err(e) => {
                     return Err(e);
@@ -908,7 +933,9 @@ fn move_dir_all(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error
             }
             match fs::rename(&path, &dest_path) {
                 Ok(_) => (),
-                Err(_) => (), // ignore copy errors
+                Err(e) => {
+                    return Err(Box::new(e));
+                }
             }
         }
     }
