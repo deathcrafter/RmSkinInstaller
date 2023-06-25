@@ -30,5 +30,5 @@ features = [
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
 
-[build-dependencies]
-winres = "0.1.12"
+# [build-dependencies]
+# winres = "0.1.12"
