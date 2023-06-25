@@ -6,6 +6,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::ExitCode;
 use uuid::Uuid;
 use zip::ZipArchive;
 
@@ -43,22 +44,16 @@ struct Opts {
     #[arg(long)]
     skin: String,
 
-    #[arg(long, default_value = "")]
-    applicationpath: String,
-
-    #[arg(long, default_value = "")]
-    settingspath: String,
-
     #[arg(long)]
     keepvariables: bool,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let opts = Opts::parse();
 
     if !Path::new(&opts.skin).is_file() {
         eprintln!("Skin file not found.");
-        return;
+        return ExitCode::FAILURE;
     }
 
     let mut install_options: InstallOptions = InstallOptions {
@@ -85,7 +80,7 @@ fn main() {
         || !Path::new(&rainmeter_settings.settings_path).exists()
     {
         eprintln!("Rainmeter not installed or not run for the first time.");
-        return;
+        return ExitCode::FAILURE;
     }
 
     println!("Reading Rainmeter settings...");
@@ -93,7 +88,7 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error reading Rainmeter settings: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     }
 
@@ -102,7 +97,7 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error extracting skin: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
@@ -111,7 +106,7 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error reading options: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
@@ -119,7 +114,7 @@ fn main() {
     println!("Closing Rainmeter if active...");
     if !close_rainmeter_if_running(&mut install_options.was_running) {
         eprintln!("Rainmeter is running. Please close Rainmeter before installing.");
-        return;
+        return ExitCode::FAILURE;
     }
 
     println!("Installing plugins...");
@@ -127,7 +122,7 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error installing plugins: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
@@ -136,7 +131,7 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error installing layouts: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
@@ -146,7 +141,7 @@ fn main() {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error merging skins: {}", e);
-                return;
+                return ExitCode::FAILURE;
             }
         };
     } else {
@@ -155,7 +150,7 @@ fn main() {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error keeping variables: {}", e);
-                return;
+                return ExitCode::FAILURE;
             }
         };
 
@@ -164,7 +159,7 @@ fn main() {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error creating backup: {}", e);
-                return;
+                return ExitCode::FAILURE;
             }
         };
 
@@ -173,7 +168,7 @@ fn main() {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Error installing skins: {}", e);
-                return;
+                return ExitCode::FAILURE;
             }
         };
     }
@@ -186,11 +181,11 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             eprintln!("Error cleaning up: {}", e);
-            return;
+            return ExitCode::FAILURE;
         }
     };
 
-    return;
+    return ExitCode::SUCCESS;
 }
 
 // region Rainmeter process handler
