@@ -77,7 +77,9 @@ fn main() -> ExitCode {
         settings_path: std::env::var("APPDATA").unwrap_or("".to_owned()) + "\\Rainmeter\\",
     };
     if !Path::new(&rainmeter_settings.application_path).exists()
-        || !Path::new(&rainmeter_settings.settings_path).exists()
+        || !Path::new(&rainmeter_settings.settings_path)
+            .join("Rainmeter.ini")
+            .exists()
     {
         eprintln!("Rainmeter not installed or not run for the first time.");
         return ExitCode::FAILURE;
@@ -341,11 +343,7 @@ fn read_rainmeter_settings(
     };
 
     if !Path::new(rainmeter_settings.skins_path.as_str()).is_dir() {
-        if fs::DirBuilder::new()
-            .recursive(true)
-            .create(rainmeter_settings.skins_path.as_str())
-            .is_err()
-        {
+        if fs::create_dir_all(rainmeter_settings.skins_path.as_str()).is_err() {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "Rainmeter skins folder not found and could not be created.",
