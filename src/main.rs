@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"] // hide console window
+
 use clap::Parser;
 use ini::Ini;
 use ini::ParseOption;
